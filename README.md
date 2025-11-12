@@ -1,6 +1,6 @@
 # Cybersecurity Control Description Generator
 
-This script generates structured, professional cybersecurity control documentation using AI based on a prompt template.
+This script generates structured, professional cybersecurity control documentation using OpenAI's API based on a prompt template.
 
 ## Setup
 
@@ -9,26 +9,23 @@ This script generates structured, professional cybersecurity control documentati
 pip install -r requirements.txt
 ```
 
-2. Set your Cursor API key. You can do this in one of three ways:
+2. Set your OpenAI API key. You can do this in one of three ways:
 
    **Option 1: Using a .env file (Recommended)**
    Create a `.env` file in the same directory as the script:
    ```bash
-   CURSOR_API_KEY=your-cursor-api-key-here
-   CURSOR_REPOSITORY=https://github.com/your-org/your-repo
+   OPENAI_API_KEY=your-openai-api-key-here
    ```
-   
-   **Note:** The `CURSOR_REPOSITORY` is required if the chat completions endpoint is not available, as the Agent API requires a repository URL.
    
    **Option 2: Environment variable**
    ```bash
-   export CURSOR_API_KEY="your-cursor-api-key-here"
+   export OPENAI_API_KEY="your-openai-api-key-here"
    ```
    
    **Option 3: Command-line argument**
    Pass it using the `-k` flag (see Usage below).
 
-**Note:** Get your Cursor API key from the [Cursor Dashboard](https://docs.cursor.com/en/background-agent/api/overview).
+**Note:** Get your OpenAI API key from the [OpenAI Platform](https://platform.openai.com/api-keys). You'll need to create an account and add billing information.
 
 ## Usage
 
@@ -44,18 +41,19 @@ python generate_descriptions.py sample_data.csv -o output.csv
 
 ### Pass API key as argument:
 ```bash
-python generate_descriptions.py sample_data.csv -k "your-cursor-api-key"
+python generate_descriptions.py sample_data.csv -k "your-openai-api-key"
 ```
 
-### With custom API URL:
+### Specify a different model:
 ```bash
-python generate_descriptions.py sample_data.csv -u "https://api.cursor.com"
+python generate_descriptions.py sample_data.csv -m "gpt-4o"
 ```
 
-### With repository context (for Agent API):
-```bash
-python generate_descriptions.py sample_data.csv -r "https://github.com/your-org/your-repo"
-```
+Available models include:
+- `gpt-4o-mini` (default, cost-effective)
+- `gpt-4o` (more capable)
+- `gpt-4-turbo` (high performance)
+- `gpt-3.5-turbo` (legacy, cheaper)
 
 ### With Excel files:
 ```bash
@@ -90,8 +88,7 @@ Output will include the original columns plus:
 ## Notes
 
 - The script uses the `prompt` file in the same directory as the template
-- **API Usage**: The script first tries to use Cursor's chat completions endpoint (if available), and falls back to the Agent API if needed
-- **Rate limiting**: A 2 second delay is added between API calls to avoid rate limits
-- **Agent API**: If using the Agent API, the script will poll for completion (up to 5 minutes per request)
-- **Repository**: The repository is **required** for the Agent API. Set it in `.env` as `CURSOR_REPOSITORY` or pass it with the `-r` flag. The repository should be a GitHub URL that the API can access.
-
+- **API Usage**: The script uses OpenAI's Chat Completions API
+- **Rate limiting**: A 1 second delay is added between API calls to avoid rate limits
+- **Cost**: API usage will incur costs based on OpenAI's pricing. `gpt-4o-mini` is the most cost-effective option.
+- **Model selection**: Use `-m` flag to choose a different model. More capable models cost more but may produce better results.

@@ -9,9 +9,9 @@ import pandas as pd
 import os
 import sys
 from pathlib import Path
-import requests
 import time
 from dotenv import load_dotenv
+from openai import OpenAI
 
 # Load environment variables from .env file
 load_dotenv()
@@ -25,17 +25,16 @@ def load_prompt_template():
     return prompt_file.read_text()
 
 
-def generate_description(title, description, prompt_template, api_key, api_url=None, repository=None):
+def generate_description(title, description, prompt_template, api_key, model="gpt-4o-mini"):
     """
-    Generate AI description using Cursor API.
+    Generate AI description using OpenAI API.
     
     Args:
         title: The control title
         description: The original description
         prompt_template: The prompt template text
-        api_key: Cursor API key
-        api_url: Cursor API base URL (default: https://api.cursor.com)
-        repository: Optional repository URL for agent context
+        api_key: OpenAI API key
+        model: OpenAI model to use (default: gpt-4o-mini)
     
     Returns:
         Generated description string
@@ -49,170 +48,73 @@ Description: {description}
 
 Please generate the formatted output according to the format specified above."""
 
-    # Default API URL
-    if not api_url:
-        api_url = "https://api.cursor.com"
-    
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json'
-    }
-    
     try:
-        # Try using chat completions endpoint first (simpler approach)
-        chat_url = f"{api_url}/v1/chat/completions"
-        payload = {
-            "model": "gpt-4",
-            "messages": [
-                {"role": "system", "content": "You are a cybersecurity documentation specialist. Generate structured, professional control documentation in the exact format specified."},
+        # Initialize OpenAI client
+        client = OpenAI(api_key=api_key)
+        
+        # Make API call
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are a cybersecurity documentation specialist. Generate structured, professional control documentation in the exact format specified. Your output must start with a piped summary line (e.g., 'Hosts: ... | Classification: ...'), NOT the title. The title is provided for context only."},
                 {"role": "user", "content": full_prompt}
             ],
-            "temperature": 0.3,
-            "max_tokens": 2000
-        }
+            temperature=0.3,
+            max_tokens=2000
+        )
         
-        response = requests.post(chat_url, headers=headers, json=payload, timeout=60)
+        # Extract the generated content
+        output = response.choices[0].message.content.strip()
         
-        if response.status_code == 200:
-            result = response.json()
-            return result.get('choices', [{}])[0].get('message', {}).get('content', '').strip()
-        elif response.status_code == 404:
-            # If chat completions doesn't exist, try Agent API
-            if not repository:
-                return f"Error: Chat completions endpoint not available and repository not provided. Agent API requires a repository. Please provide a repository URL using -r flag or set CURSOR_REPOSITORY in .env file."
-            return generate_description_with_agent(title, description, prompt_template, api_key, api_url, repository)
-        else:
-            # Try Agent API as fallback
-            if not repository:
-                return f"Error: Chat completions failed (status {response.status_code}) and repository not provided. Agent API requires a repository. Please provide a repository URL using -r flag or set CURSOR_REPOSITORY in .env file."
-            return generate_description_with_agent(title, description, prompt_template, api_key, api_url, repository)
-            
-    except requests.exceptions.RequestException as e:
-        # If chat endpoint fails, try Agent API
-        if not repository:
-            return f"Error: Chat endpoint failed and repository not provided. Agent API requires a repository. Please provide a repository URL using -r flag or set CURSOR_REPOSITORY in .env file. Original error: {str(e)}"
-        try:
-            return generate_description_with_agent(title, description, prompt_template, api_key, api_url, repository)
-        except Exception as agent_error:
-            return f"Error generating description: {str(e)} (Agent API also failed: {str(agent_error)})"
+        # Post-process: Remove title if it appears at the start
+        # Check if output starts with the title (case-insensitive, allowing for some variation)
+        lines = output.split('\n')
+        first_line = lines[0].strip()
+        
+        # If first line matches the title (allowing for minor variations), remove it
+        if first_line.lower() == title.lower() or first_line == title:
+            output = '\n'.join(lines[1:]).strip()
+        
+        # Ensure output starts with a piped line (contains "|")
+        # If it doesn't, the prompt should have handled it, but this is a safety check
+        if output and '|' not in output.split('\n')[0]:
+            # Try to find a line with | and make it the first line
+            lines = output.split('\n')
+            for i, line in enumerate(lines):
+                if '|' in line:
+                    # Move this line to the beginning
+                    lines.insert(0, line)
+                    lines.pop(i + 1)
+                    output = '\n'.join(lines)
+                    break
+        
+        return output
+        
     except Exception as e:
         return f"Error generating description: {str(e)}"
 
 
-def generate_description_with_agent(title, description, prompt_template, api_key, api_url, repository):
-    """
-    Generate description using Cursor Agent API (more complex, requires polling).
-    
-    Args:
-        title: The control title
-        description: The original description
-        prompt_template: The prompt template text
-        api_key: Cursor API key
-        api_url: Cursor API base URL
-        repository: Optional repository URL
-    
-    Returns:
-        Generated description string
-    """
-    full_prompt = f"""{prompt_template}
-
-Title: {title}
-
-Description: {description}
-
-Please generate the formatted output according to the format specified above."""
-
-    headers = {
-        'Authorization': f'Bearer {api_key}',
-        'Content-Type': 'application/json'
-    }
-    
-    # Agent API endpoint
-    agents_url = f"{api_url}/v0/agents"
-    
-    # Prepare payload for agent creation
-    # Note: Cursor Agent API requires a 'source' field
-    if not repository:
-        raise Exception("Repository is required for Cursor Agent API. Please provide a repository URL using -r flag or set CURSOR_REPOSITORY in .env file.")
-    
-    payload = {
-        'prompt': {
-            'text': full_prompt
-        },
-        'source': {
-            'repository': repository,
-            'ref': 'main'
-        }
-    }
-    
-    # Create agent
-    response = requests.post(agents_url, headers=headers, json=payload, timeout=60)
-    
-    if response.status_code not in [200, 201]:
-        raise Exception(f"Failed to create agent: {response.status_code} - {response.text}")
-    
-    agent_data = response.json()
-    agent_id = agent_data.get('id')
-    
-    if not agent_id:
-        raise Exception("No agent ID returned from API")
-    
-    # Poll for agent completion
-    status_url = f"{agents_url}/{agent_id}"
-    max_polls = 60  # Maximum number of polls (5 minutes with 5 second intervals)
-    poll_count = 0
-    
-    while poll_count < max_polls:
-        status_response = requests.get(status_url, headers=headers, timeout=60)
-        
-        if status_response.status_code != 200:
-            raise Exception(f"Failed to get agent status: {status_response.status_code} - {status_response.text}")
-        
-        status_data = status_response.json()
-        status = status_data.get('status')
-        
-        if status == 'FINISHED':
-            # Extract the generated description from the agent result
-            # The exact field name may vary - adjust based on Cursor API response
-            result = status_data.get('summary') or status_data.get('result') or status_data.get('output', '')
-            return str(result).strip()
-        elif status in ['ERROR', 'EXPIRED', 'FAILED']:
-            error_msg = status_data.get('error', 'Unknown error')
-            raise Exception(f"Agent ended with status {status}: {error_msg}")
-        
-        # Wait before polling again
-        time.sleep(5)
-        poll_count += 1
-    
-    raise Exception("Agent did not complete within timeout period")
-
-
-def process_file(input_file, output_file=None, api_key=None, api_url=None, repository=None):
+def process_file(input_file, output_file=None, api_key=None, model="gpt-4o-mini"):
     """
     Process the input CSV/Excel file and generate AI descriptions.
     
     Args:
         input_file: Path to input CSV or Excel file
         output_file: Path to output file (default: adds '_generated' to input filename)
-        api_key: Cursor API key (or set CURSOR_API_KEY environment variable)
-        api_url: Cursor API base URL (optional, defaults to https://api.cursor.com)
-        repository: Optional repository URL for agent context
+        api_key: OpenAI API key (or set OPENAI_API_KEY environment variable)
+        model: OpenAI model to use (default: gpt-4o-mini)
     """
     # Load the prompt template
     prompt_template = load_prompt_template()
     
     # Get API key
     if not api_key:
-        api_key = os.getenv("CURSOR_API_KEY")
+        api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ValueError(
-            "Cursor API key not provided. Set CURSOR_API_KEY in a .env file, "
+            "OpenAI API key not provided. Set OPENAI_API_KEY in a .env file, "
             "as an environment variable, or pass it using the -k parameter."
         )
-    
-    # Get repository from environment if not provided
-    if not repository:
-        repository = os.getenv("CURSOR_REPOSITORY")
     
     # Read the input file
     input_path = Path(input_file)
@@ -244,13 +146,12 @@ def process_file(input_file, output_file=None, api_key=None, api_url=None, repos
             row['description'],
             prompt_template,
             api_key,
-            api_url,
-            repository
+            model
         )
         ai_descriptions.append(ai_desc)
         
-        # Add a delay to avoid rate limiting (longer for Agent API)
-        time.sleep(2)
+        # Add a delay to avoid rate limiting
+        time.sleep(1)
     
     # Add the AI generated descriptions to the dataframe
     df['AI generated description'] = ai_descriptions
@@ -292,21 +193,18 @@ def main():
     )
     parser.add_argument(
         "-k", "--api-key",
-        help="Cursor API key (or set CURSOR_API_KEY environment variable)"
+        help="OpenAI API key (or set OPENAI_API_KEY environment variable)"
     )
     parser.add_argument(
-        "-u", "--api-url",
-        help="Cursor API base URL (default: https://api.cursor.com)"
-    )
-    parser.add_argument(
-        "-r", "--repository",
-        help="Repository URL for agent context (required for Agent API, can also set CURSOR_REPOSITORY in .env)"
+        "-m", "--model",
+        default="gpt-4o-mini",
+        help="OpenAI model to use (default: gpt-4o-mini). Options: gpt-4o-mini, gpt-4o, gpt-4-turbo, etc."
     )
     
     args = parser.parse_args()
     
     try:
-        process_file(args.input_file, args.output, args.api_key, args.api_url, args.repository)
+        process_file(args.input_file, args.output, args.api_key, args.model)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
