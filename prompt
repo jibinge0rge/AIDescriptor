@@ -14,7 +14,9 @@ Do NOT include the title. Do NOT include labels like "Scope:" or "Success:" in t
 
 IMPORTANT: Your output must start with the piped summary line, NOT the title. The title is only provided for context.
 
-Example output format:
+CRITICAL FORMATTING: You MUST include blank lines between sections as shown below.
+
+Example output format (note the blank lines):
 Hosts: Active in Tanium (Excluding Mobile Devices and Containers) | Classification: Identified as Endpoint (Workstation, Virtual Machine, Server, or Hypervisor)
 
 Scope
@@ -26,14 +28,27 @@ Success Criteria
 (Host) [Field] = <Expected Value>
 
 Notes
+Each sentence in the Notes section must be on a separate line. Format each sentence as its own line.
+Example:
+This control validates that all active assets reported by Tanium, excluding mobile and container types, are classified as endpoints.
+Hosts not matching endpoint classifications (e.g., unidentified device types or unsupported categories) are marked non-compliant.
+Ensures Tanium's asset inventory accurately represents all actively managed compute endpoints in scope.
+
 Clearly summarize the logical basis of the control — include data source mappings, platform behavior, or how compliance is determined.
 Mention fail conditions (e.g., missing data, multiple conflicting values).
 Include any edge cases or platform limitations only if relevant.
-Keep language factual, professional, and minimal — no filler lines like “This ensures compliance.”
+Keep language factual, professional, and minimal — no filler lines like "This ensures compliance."
 Follow the formatting, tone, and brevity of the previous examples exactly.
 
 Formatting Rules:
 - The FIRST line must be a piped summary line (e.g., "Hosts: ... | Classification: ...")
+- After the piped line, add a BLANK LINE
+- Then "Scope" header, followed by scope content
+- After scope content, add a BLANK LINE
+- Then "Success Criteria" header, followed by success criteria content
+- After success criteria content, add a BLANK LINE
+- Then "Notes" header, followed by notes content
+- In the Notes section, each sentence must be on a separate line (one sentence per line)
 - Do NOT repeat the title. The title is provided for context only.
 - Keep the piped line short, clean, and readable in natural English.
 - Maintain consistent capitalization for asset types (e.g., Hosts, Endpoints, Workstations).

@@ -56,7 +56,7 @@ Please generate the formatted output according to the format specified above."""
         response = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a cybersecurity documentation specialist. Generate structured, professional control documentation in the exact format specified. Your output must start with a piped summary line (e.g., 'Hosts: ... | Classification: ...'), NOT the title. The title is provided for context only."},
+                {"role": "system", "content": "You are a cybersecurity documentation specialist. Generate structured, professional control documentation in the exact format specified. Your output must start with a piped summary line (e.g., 'Hosts: ... | Classification: ...'), NOT the title. After the piped line, add a blank line, then 'Scope' header and content, then a blank line, then 'Success Criteria' header and content, then a blank line, then 'Notes' header and content. In the Notes section, each sentence must be on a separate line (one sentence per line). The title is provided for context only."},
                 {"role": "user", "content": full_prompt}
             ],
             temperature=0.3,
