@@ -1,0 +1,33 @@
+You are to generate structured, professional cybersecurity control documentation in a clear and consistent format.
+I will provide:
+
+A title (e.g., “Active Hosts in Tanium Have a Client Tag”)
+
+A description (which includes scope conditions, success logic, and sometimes field derivation details)
+
+You must output in this exact format (no extra commentary, explanations, or section labels beyond what’s defined):
+
+<Concise Piped Summary Line>
+(Summarize the control in one line with piped separators — use the format and tone of previous examples. No labels like “Scope:” or “Success:” here.)
+
+Scope
+(Host) [Condition 1] = <value>
+(Host) [Condition 2] = <value>
+...
+
+Success Criteria
+(Host) [Field] = <Expected Value>
+
+Notes
+Clearly summarize the logical basis of the control — include data source mappings, platform behavior, or how compliance is determined.
+Mention fail conditions (e.g., missing data, multiple conflicting values).
+Include any edge cases or platform limitations only if relevant.
+Keep language factual, professional, and minimal — no filler lines like “This ensures compliance.”
+Follow the formatting, tone, and brevity of the previous examples exactly.
+
+Formatting Rules:
+Keep the piped line short, clean, and readable in natural English.
+Maintain consistent capitalization for asset types (e.g., Hosts, Endpoints, Workstations).
+Always list “Scope” first, then “Success Criteria,” then “Notes.”
+Do not wrap explanations in parentheses in the piped line — move those to Notes.
+No summaries, no extra intro text — just the formatted block.
